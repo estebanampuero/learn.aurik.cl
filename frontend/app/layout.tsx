@@ -1,6 +1,6 @@
 export const metadata = {
-  title: "Deutsch-Tutor",
-  description: "Tutor de alemán con voz",
+  title: "Tutor de idiomas — alemán & inglés con voz",
+  description: "Practica alemán o inglés hablando: te corrige, responde con voz y traduce cualquier palabra.",
 };
 
 import "./globals.css";

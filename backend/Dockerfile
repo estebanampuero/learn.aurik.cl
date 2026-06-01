@@ -10,11 +10,20 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Voz alemana de Piper (Thorsten, medium)
+# Voces Piper: alemán (♂ Thorsten / ♀ Kerstin) + inglés (♂ Ryan / ♀ Amy).
+# Cada idioma/género = un .onnx + su .onnx.json. Para agregar un idioma, suma su
+# ruta aquí y la entrada correspondiente en langs.py.
 RUN mkdir -p /app/voices && \
-    BASE="https://huggingface.co/rhasspy/piper-voices/resolve/main/de/de_DE/thorsten/medium" && \
-    curl -fsSL "$BASE/de_DE-thorsten-medium.onnx" -o /app/voices/de_DE-thorsten-medium.onnx && \
-    curl -fsSL "$BASE/de_DE-thorsten-medium.onnx.json" -o /app/voices/de_DE-thorsten-medium.onnx.json
+    B="https://huggingface.co/rhasspy/piper-voices/resolve/main" && \
+    for v in \
+      "de/de_DE/thorsten/medium/de_DE-thorsten-medium" \
+      "de/de_DE/kerstin/low/de_DE-kerstin-low" \
+      "en/en_US/ryan/medium/en_US-ryan-medium" \
+      "en/en_US/amy/medium/en_US-amy-medium" ; do \
+        name=$(basename "$v") && \
+        curl -fsSL "$B/$v.onnx" -o "/app/voices/$name.onnx" && \
+        curl -fsSL "$B/$v.onnx.json" -o "/app/voices/$name.onnx.json" ; \
+    done
 
 COPY . .
 

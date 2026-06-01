@@ -4,10 +4,17 @@ import { useRef, useState } from "react";
 
 const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
+const LANGS = [
+  { code: "de", label: "Deutsch", flag: "🇩🇪", name_es: "alemán" },
+  { code: "en", label: "English", flag: "🇬🇧", name_es: "inglés" },
+] as const;
+type LangCode = (typeof LANGS)[number]["code"];
+type Gender = "f" | "m";
+
 type Vocab = { de: string; es: string };
 type TutorTurn = {
   user_text: string;
-  reply_de: string;
+  reply: string;
   correction: string | null;
   explanation_es: string;
   new_vocab: Vocab[];
@@ -16,11 +23,16 @@ type TutorTurn = {
 type WordPop = {
   word: string;
   translation_es?: string;
-  synonyms_de?: string[];
+  synonyms?: string[];
   loading: boolean;
+  x: number;
+  y: number;
+  above: boolean;
 };
 
 export default function Page() {
+  const [lang, setLang] = useState<LangCode>("de");
+  const [voice, setVoice] = useState<Gender>("f");
   const [turns, setTurns] = useState<TutorTurn[]>([]);
   const [recording, setRecording] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -28,6 +40,17 @@ export default function Page() {
   const recRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const historyRef = useRef<{ role: string; content: string }[]>([]);
+
+  const current = LANGS.find((l) => l.code === lang)!;
+
+  // Cambiar de idioma reinicia la conversación (no mezclar idiomas en el historial).
+  function switchLang(code: LangCode) {
+    if (code === lang) return;
+    setLang(code);
+    setTurns([]);
+    historyRef.current = [];
+    setWp(null);
+  }
 
   async function startRec() {
     const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -52,11 +75,13 @@ export default function Page() {
       const fd = new FormData();
       fd.append("audio", blob, "speech.webm");
       fd.append("history", JSON.stringify(historyRef.current));
+      fd.append("lang", lang);
+      fd.append("voice", voice);
       const res = await fetch(`${API}/api/chat`, { method: "POST", body: fd });
       const data = await res.json();
       if (data.error) { alert(data.error); return; }
       historyRef.current.push({ role: "user", content: data.user_text });
-      historyRef.current.push({ role: "assistant", content: data.reply_de });
+      historyRef.current.push({ role: "assistant", content: data.reply });
       setTurns((t) => [...t, data]);
       if (data.audio_b64) new Audio("data:audio/wav;base64," + data.audio_b64).play();
     } catch {
@@ -66,20 +91,40 @@ export default function Page() {
     }
   }
 
-  async function clickWord(raw: string, context: string) {
+  async function clickWord(raw: string, context: string, e?: React.MouseEvent) {
     const w = raw.replace(/[.,!?;:„""»«()¿¡…]/g, "").trim();
     if (!w) return;
-    setWp({ word: w, loading: true });
+
+    // Ancla la burbuja sobre (o bajo) la palabra tocada.
+    let x = window.innerWidth / 2;
+    let y = 120;
+    let above = true;
+    if (e) {
+      const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
+      x = Math.max(140, Math.min(window.innerWidth - 140, r.left + r.width / 2));
+      above = r.top > 180; // si no hay espacio arriba, cae debajo
+      y = above ? r.top : r.bottom;
+    }
+    setWp({ word: w, loading: true, x, y, above });
+
     try {
       const res = await fetch(`${API}/api/word`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ word: w, context }),
+        body: JSON.stringify({ word: w, context, lang }),
       });
       const d = await res.json();
-      setWp({ word: w, translation_es: d.translation_es, synonyms_de: d.synonyms_de, loading: false });
+      setWp((p) =>
+        p && p.word === w && p.loading
+          ? { ...p, translation_es: d.translation_es, synonyms: d.synonyms, loading: false }
+          : p
+      );
     } catch {
-      setWp({ word: w, translation_es: "(error de conexión)", synonyms_de: [], loading: false });
+      setWp((p) =>
+        p && p.word === w && p.loading
+          ? { ...p, translation_es: "(error de conexión)", synonyms: [], loading: false }
+          : p
+      );
     }
   }
 
@@ -89,7 +134,7 @@ export default function Page() {
       /^\s+$/.test(tok) ? (
         tok
       ) : (
-        <span key={i} className="word" onClick={() => clickWord(tok, text)}>
+        <span key={i} className="word" onClick={(e) => clickWord(tok, text, e)}>
           {tok}
         </span>
       )
@@ -98,8 +143,26 @@ export default function Page() {
 
   return (
     <div className="wrap">
-      <h1>🇩🇪 Deutsch-Tutor</h1>
-      <p className="sub">Habla en alemán → te corrijo y respondo con voz. Toca cualquier palabra alemana para ver su traducción y sinónimos.</p>
+      <h1>{current.flag} Tutor de {current.name_es}</h1>
+      <p className="sub">Habla en {current.name_es} → te corrijo y respondo con voz. Toca cualquier palabra para ver su traducción y sinónimos.</p>
+
+      <div className="controls">
+        <div className="seg" role="group" aria-label="Idioma">
+          {LANGS.map((l) => (
+            <button
+              key={l.code}
+              className={"seg-btn" + (l.code === lang ? " on" : "")}
+              onClick={() => switchLang(l.code)}
+            >
+              {l.flag} {l.label}
+            </button>
+          ))}
+        </div>
+        <div className="seg" role="group" aria-label="Voz del tutor">
+          <button className={"seg-btn" + (voice === "f" ? " on" : "")} onClick={() => setVoice("f")}>♀ Mujer</button>
+          <button className={"seg-btn" + (voice === "m" ? " on" : "")} onClick={() => setVoice("m")}>♂ Hombre</button>
+        </div>
+      </div>
 
       {turns.map((t, i) => (
         <div key={i}>
@@ -112,11 +175,11 @@ export default function Page() {
           </div>
           <div className="msg tutor">
             <div className="label">Tutor</div>
-            <div className="de">{clickable(t.reply_de)}</div>
+            <div className="de">{clickable(t.reply)}</div>
             {t.new_vocab?.length > 0 && (
               <div className="vocab">
                 {t.new_vocab.map((v, j) => (
-                  <span className="chip" key={j} onClick={() => clickWord(v.de, t.reply_de)}>{v.de} — {v.es}</span>
+                  <span className="chip" key={j} onClick={(e) => clickWord(v.de, t.reply, e)}>{v.de} — {v.es}</span>
                 ))}
               </div>
             )}
@@ -126,29 +189,34 @@ export default function Page() {
       ))}
 
       {wp && (
-        <div className="wordpop" onClick={() => setWp(null)}>
-          <div className="wordpop-inner" onClick={(e) => e.stopPropagation()}>
-            <button className="wordpop-x" onClick={() => setWp(null)}>×</button>
-            <div className="wordpop-w">{wp.word}</div>
+        <>
+          <div className="bubble-overlay" onClick={() => setWp(null)} />
+          <div
+            className={"bubble " + (wp.above ? "above" : "below")}
+            style={{ left: wp.x, top: wp.y }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="bubble-w">{wp.word}</div>
             {wp.loading ? (
-              <div className="wordpop-loading">buscando…</div>
+              <div className="bubble-loading"><span className="spinner" />buscando…</div>
             ) : (
               <>
-                <div className="wordpop-tr">🇪🇸 {wp.translation_es}</div>
-                {wp.synonyms_de && wp.synonyms_de.length > 0 && (
-                  <div className="wordpop-syn">
+                <div className="bubble-tr">🇪🇸 {wp.translation_es}</div>
+                {wp.synonyms && wp.synonyms.length > 0 && (
+                  <div className="bubble-syn">
                     <span className="label">Sinónimos</span>
                     <div className="vocab">
-                      {wp.synonyms_de.map((s, k) => (
-                        <span className="chip" key={k} onClick={() => clickWord(s, "")}>{s}</span>
+                      {wp.synonyms.map((s, k) => (
+                        <span className="chip" key={k} onClick={(e) => clickWord(s, "", e)}>{s}</span>
                       ))}
                     </div>
                   </div>
                 )}
               </>
             )}
+            <span className="bubble-arrow" />
           </div>
-        </div>
+        </>
       )}
 
       <button

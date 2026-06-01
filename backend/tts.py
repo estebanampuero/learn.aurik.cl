@@ -1,4 +1,4 @@
-"""Text-to-Speech con Piper (self-hosted, gratis, voz alemana)."""
+"""Text-to-Speech con Piper (self-hosted, gratis). Una voz .onnx por idioma/género."""
 import os
 import subprocess
 import tempfile
@@ -6,13 +6,17 @@ import tempfile
 import config
 
 
-def synthesize(text: str) -> bytes:
-    """Convierte texto alemán a audio WAV (bytes)."""
+def synthesize(text: str, model_path: str = "") -> bytes:
+    """Convierte texto a audio WAV (bytes) usando la voz `model_path`.
+
+    Si no se entrega `model_path`, usa la voz por defecto (config.PIPER_MODEL).
+    """
+    model = model_path or config.PIPER_MODEL
     with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as f:
         out_path = f.name
     try:
         subprocess.run(
-            ["piper", "--model", config.PIPER_MODEL, "--output_file", out_path],
+            ["piper", "--model", model, "--output_file", out_path],
             input=text.encode("utf-8"),
             check=True,
             capture_output=True,

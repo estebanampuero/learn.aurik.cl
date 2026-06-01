@@ -9,6 +9,7 @@ from fastapi import FastAPI, File, Form, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
+import langs
 import stt
 import tts
 import tutor
@@ -17,8 +18,9 @@ import tutor
 class WordReq(BaseModel):
     word: str
     context: str = ""
+    lang: str = "de"
 
-app = FastAPI(title="Deutsch-Tutor")
+app = FastAPI(title="Sprach-Tutor")
 
 app.add_middleware(
     CORSMiddleware,
@@ -33,20 +35,39 @@ def health():
     return {"status": "ok"}
 
 
+@app.get("/api/langs")
+def list_langs():
+    """Idiomas disponibles + voces, para poblar el selector del frontend."""
+    return {
+        "default": langs.DEFAULT,
+        "langs": [
+            {"code": p.code, "label": p.label, "flag": p.flag,
+             "voices": sorted(p.voices.keys())}
+            for p in langs.LANGS.values()
+        ],
+    }
+
+
 @app.post("/api/word")
 def word(req: WordReq):
-    """Click en una palabra alemana → traducción al español + sinónimos."""
-    info = tutor.word_info(req.word.strip(), req.context)
-    print(f"[WORD] {req.word!r} -> {info.translation_es!r} syn={info.synonyms_de}", flush=True)
+    """Click en una palabra → traducción al español + sinónimos (idioma `lang`)."""
+    info = tutor.word_info(req.word.strip(), req.context, req.lang)
+    print(f"[WORD:{req.lang}] {req.word!r} -> {info.translation_es!r} syn={info.synonyms}", flush=True)
     return info.model_dump()
 
 
 @app.post("/api/chat")
-async def chat(audio: UploadFile = File(...), history: str = Form("[]")):
+async def chat(
+    audio: UploadFile = File(...),
+    history: str = Form("[]"),
+    lang: str = Form("de"),
+    voice: str = Form("f"),
+):
     """Recibe audio (lo que dijo el alumno) + historial; devuelve la respuesta del tutor."""
     hist: list[dict] = json.loads(history)
+    pack = langs.get(lang)
 
-    # 1) Guardar audio y transcribir (STT)
+    # 1) Guardar audio y transcribir (STT) en el idioma objetivo
     data = await audio.read()
     suffix = os.path.splitext(audio.filename or "")[1] or ".webm"
     with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as f:
@@ -54,25 +75,25 @@ async def chat(audio: UploadFile = File(...), history: str = Form("[]")):
         audio_path = f.name
     t0 = time.monotonic()
     try:
-        user_text = stt.transcribe(audio_path)
+        user_text = stt.transcribe(audio_path, pack.stt)
     finally:
         os.remove(audio_path)
     t_stt = time.monotonic()
 
-    print(f"[STT] user_text={user_text!r}", flush=True)
+    print(f"[STT:{lang}] user_text={user_text!r}", flush=True)
     if not user_text:
         print("[STT] vacío → audio no entendido", flush=True)
         return {"error": "No se entendió el audio. Intenta de nuevo."}
 
-    # 2) Tutor (Claude) responde + corrige
+    # 2) Tutor (Claude) responde + corrige en el idioma objetivo
     hist.append({"role": "user", "content": user_text})
-    result = tutor.tutor(hist)
+    result = tutor.tutor(hist, lang)
     t_claude = time.monotonic()
-    print(f"[TUTOR] reply={result.reply_de!r} | corr={result.correction!r} "
+    print(f"[TUTOR:{lang}] reply={result.reply!r} | corr={result.correction!r} "
           f"| vocab={[(v.de, v.es) for v in result.new_vocab]}", flush=True)
 
-    # 3) TTS de la respuesta en alemán
-    audio_bytes = tts.synthesize(result.reply_de)
+    # 3) TTS de la respuesta con la voz elegida (f/m) del idioma
+    audio_bytes = tts.synthesize(result.reply, langs.voice_path(lang, voice))
     t_tts = time.monotonic()
     print(f"[TTS] {len(audio_bytes)} bytes", flush=True)
     print(f"[TIMING] stt={(t_stt-t0)*1000:.0f}ms  claude={(t_claude-t_stt)*1000:.0f}ms  "

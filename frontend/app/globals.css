@@ -8,6 +8,17 @@ body {
 .wrap { max-width: 720px; margin: 0 auto; padding: 24px 16px 96px; }
 h1 { color: #38bdf8; font-size: 22px; }
 .sub { color: #94a3b8; font-size: 13px; margin-top: -8px; }
+
+/* selectores de idioma y voz */
+.controls { display: flex; flex-wrap: wrap; gap: 10px; margin: 14px 0 4px; }
+.seg { display: inline-flex; background: #1e293b; border: 1px solid #334155; border-radius: 999px; padding: 3px; gap: 2px; }
+.seg-btn {
+  border: none; background: transparent; color: #94a3b8;
+  font-size: 13px; font-weight: 600; padding: 6px 14px; border-radius: 999px;
+  cursor: pointer; transition: background .15s, color .15s; white-space: nowrap;
+}
+.seg-btn:hover { color: #e2e8f0; }
+.seg-btn.on { background: #38bdf8; color: #042f2e; }
 .msg { border-radius: 12px; padding: 12px 14px; margin: 10px 0; }
 .user { background: #1e293b; }
 .tutor { background: #0b3b46; }
@@ -31,11 +42,43 @@ h1 { color: #38bdf8; font-size: 22px; }
 .word:hover { background: rgba(56,189,248,.22); }
 .chip { cursor: pointer; }
 
-/* popup de traducción + sinónimos */
-.wordpop { position: fixed; inset: 0; background: rgba(0,0,0,.55); display: flex; align-items: flex-end; justify-content: center; z-index: 50; }
-.wordpop-inner { background: #0b3b46; border: 1px solid #155e75; border-radius: 16px 16px 0 0; width: 100%; max-width: 720px; padding: 18px 18px 28px; position: relative; }
-.wordpop-x { position: absolute; top: 10px; right: 14px; background: none; border: none; color: #94a3b8; font-size: 26px; cursor: pointer; line-height: 1; }
-.wordpop-w { font-size: 22px; font-weight: 700; color: #38bdf8; }
-.wordpop-tr { font-size: 18px; margin-top: 6px; }
-.wordpop-loading { color: #94a3b8; margin-top: 8px; }
-.wordpop-syn { margin-top: 12px; }
+/* burbuja de traducción + sinónimos, anclada sobre la palabra */
+.bubble-overlay { position: fixed; inset: 0; z-index: 60; }
+.bubble {
+  position: fixed; z-index: 61;
+  background: #0b3b46; border: 1px solid #1b6c80;
+  border-radius: 14px; padding: 12px 14px;
+  width: max-content; max-width: min(280px, calc(100vw - 24px));
+  box-shadow: 0 12px 32px rgba(0,0,0,.55);
+}
+.bubble.above { animation: bubble-above .15s ease-out forwards; }
+.bubble.below { animation: bubble-below .15s ease-out forwards; }
+@keyframes bubble-above {
+  from { opacity: 0; transform: translate(-50%, calc(-100% - 2px)); }
+  to   { opacity: 1; transform: translate(-50%, calc(-100% - 12px)); }
+}
+@keyframes bubble-below {
+  from { opacity: 0; transform: translate(-50%, 2px); }
+  to   { opacity: 1; transform: translate(-50%, 12px); }
+}
+
+/* flecha (cola) de la burbuja */
+.bubble-arrow {
+  position: absolute; left: 50%; width: 12px; height: 12px;
+  background: #0b3b46; transform: translateX(-50%) rotate(45deg);
+}
+.bubble.above .bubble-arrow { bottom: -6px; border-right: 1px solid #1b6c80; border-bottom: 1px solid #1b6c80; }
+.bubble.below .bubble-arrow { top: -6px; border-left: 1px solid #1b6c80; border-top: 1px solid #1b6c80; }
+
+.bubble-w { font-size: 20px; font-weight: 700; color: #38bdf8; }
+.bubble-tr { font-size: 17px; margin-top: 6px; }
+.bubble-syn { margin-top: 12px; }
+
+/* animación de carga */
+.bubble-loading { display: flex; align-items: center; gap: 8px; color: #94a3b8; margin-top: 8px; font-size: 14px; }
+.spinner {
+  width: 16px; height: 16px; border-radius: 50%;
+  border: 2px solid rgba(148,163,184,.25); border-top-color: #38bdf8;
+  animation: spin .7s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }

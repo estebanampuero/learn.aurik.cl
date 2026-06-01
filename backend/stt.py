@@ -20,8 +20,13 @@ def _get_model():
     return _model
 
 
-def transcribe(audio_path: str) -> str:
-    """Transcribe audio en alemán a texto."""
+def transcribe(audio_path: str, language: str = "") -> str:
+    """Transcribe audio a texto. `language` = código del idioma objetivo (de/en…).
+
+    Whisper es multilingüe, así que basta con pasarle el código correcto. Si viene
+    vacío se usa el default de config (STT_LANGUAGE).
+    """
+    lang = language or config.STT_LANGUAGE
     # OPCIÓN B: delegar a un servicio Whisper compartido (no carga modelo aquí).
     # Compatible con urgencias-er: POST /api/v1/transcribe (Bearer), responde {texto,...}.
     if config.STT_SERVICE_URL:
@@ -34,7 +39,7 @@ def transcribe(audio_path: str) -> str:
             r = httpx.post(
                 config.STT_SERVICE_URL,
                 files=files,
-                data={"language": config.STT_LANGUAGE},
+                data={"language": lang},
                 headers=headers,
                 timeout=120,
             )
@@ -43,5 +48,5 @@ def transcribe(audio_path: str) -> str:
         return (data.get("texto") or data.get("text") or "").strip()
 
     # OPCIÓN A: faster-whisper local (caché compartido).
-    segments, _info = _get_model().transcribe(audio_path, language="de", vad_filter=True)
+    segments, _info = _get_model().transcribe(audio_path, language=lang, vad_filter=True)
     return " ".join(seg.text for seg in segments).strip()

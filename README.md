@@ -1,15 +1,21 @@
-# Deutsch-Tutor — tutor de alemán con voz (self-hosted)
+# Sprach-Tutor — tutor de idiomas con voz (self-hosted)
 
-MVP Fase 1: hablas en alemán → **faster-whisper** transcribe → **Claude** corrige y
+Hablas en el idioma que practicas → **faster-whisper** transcribe → **Claude** corrige y
 responde → **Piper** lo dice en voz. UI web. Todo self-hosted; solo Claude usa API
 (centavos/día con Haiku). Spec completa en [SPEC.md](SPEC.md).
+
+## Idiomas y voces
+- Idiomas: **alemán 🇩🇪** e **inglés 🇬🇧** (las explicaciones son siempre en español).
+- Selector de **voz**: femenina ♀ / masculina ♂ por idioma (voces Piper).
+- Agregar un idioma = una entrada en [`backend/langs.py`](backend/langs.py) + descargar
+  sus voces en el [Dockerfile](backend/Dockerfile). Claude y Whisper ya son multilingües.
 
 ## Arquitectura
 ```
 [Next.js UI] --audio--> [FastAPI]
                           ├─ faster-whisper (STT, local)
                           ├─ Claude (tutor + corrección, structured output + prompt caching)
-                          └─ Piper (TTS alemán, local) --audio--> UI reproduce
+                          └─ Piper (TTS multi-idioma/voz, local) --audio--> UI reproduce
 ```
 
 ## Correr con Docker (VPS o local)
@@ -49,6 +55,7 @@ tutor-api.tudominio.com  { reverse_proxy localhost:8000 }
 
 ## Notas de implementación (Claude API)
 - `tutor.py` usa **structured outputs** (`client.messages.parse` + Pydantic) → respuesta
-  siempre con `reply_de / correction / explanation_es / new_vocab / pronunciation_tip`.
+  siempre con `reply / correction / explanation_es / new_vocab / pronunciation_tip`.
+  El idioma objetivo se resuelve en `langs.py` (prompt del tutor + del diccionario por idioma).
 - El system prompt va marcado con **prompt caching** (`cache_control: ephemeral`). El caché
   rinde de verdad cuando amplías la guía del tutor (mín. ~4096 tokens en Haiku 4.5).
