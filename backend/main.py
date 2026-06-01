@@ -42,7 +42,8 @@ def list_langs():
         "default": langs.DEFAULT,
         "langs": [
             {"code": p.code, "label": p.label, "flag": p.flag,
-             "voices": sorted(p.voices.keys())}
+             "name_es": p.name_es, "tutor": p.tutor, "glyph": p.glyph,
+             "greeting": p.greeting, "voices": sorted(p.voices.keys())}
             for p in langs.LANGS.values()
         ],
     }
@@ -58,29 +59,36 @@ def word(req: WordReq):
 
 @app.post("/api/chat")
 async def chat(
-    audio: UploadFile = File(...),
+    audio: UploadFile | None = File(None),
+    text: str = Form(""),
     history: str = Form("[]"),
     lang: str = Form("de"),
     voice: str = Form("f"),
 ):
-    """Recibe audio (lo que dijo el alumno) + historial; devuelve la respuesta del tutor."""
+    """Recibe audio (PTT) o texto (fallback) + historial; devuelve la respuesta del tutor."""
     hist: list[dict] = json.loads(history)
     pack = langs.get(lang)
 
-    # 1) Guardar audio y transcribir (STT) en el idioma objetivo
-    data = await audio.read()
-    suffix = os.path.splitext(audio.filename or "")[1] or ".webm"
-    with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as f:
-        f.write(data)
-        audio_path = f.name
+    # 1) Obtener lo que dijo el alumno: por texto (fallback) o transcribiendo el audio (STT)
     t0 = time.monotonic()
-    try:
-        user_text = stt.transcribe(audio_path, pack.stt)
-    finally:
-        os.remove(audio_path)
+    text = (text or "").strip()
+    if text:
+        user_text = text
+    elif audio is not None:
+        data = await audio.read()
+        suffix = os.path.splitext(audio.filename or "")[1] or ".webm"
+        with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as f:
+            f.write(data)
+            audio_path = f.name
+        try:
+            user_text = stt.transcribe(audio_path, pack.stt)
+        finally:
+            os.remove(audio_path)
+    else:
+        return {"error": "Envía audio o texto."}
     t_stt = time.monotonic()
 
-    print(f"[STT:{lang}] user_text={user_text!r}", flush=True)
+    print(f"[IN:{lang}] user_text={user_text!r} ({'text' if text else 'audio'})", flush=True)
     if not user_text:
         print("[STT] vacío → audio no entendido", flush=True)
         return {"error": "No se entendió el audio. Intenta de nuevo."}

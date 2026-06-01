@@ -1,7 +1,8 @@
 """El tutor: Claude corrige y responde, con salida estructurada + prompt caching.
 
 Multi-idioma: el idioma objetivo (alemán/inglés) se resuelve vía `langs.py`.
-Las explicaciones y traducciones son siempre en español.
+Las explicaciones y traducciones son siempre en español. Los tutores son generales
+(se adaptan al nivel del alumno).
 """
 import anthropic
 from pydantic import BaseModel
@@ -17,29 +18,48 @@ class VocabItem(BaseModel):
     es: str   # glosa en español
 
 
+class CorrectionItem(BaseModel):
+    wrong: str
+    right: str
+
+
+class Grammar(BaseModel):
+    tag: str       # categoría corta, ej. "Verbos impersonales"
+    title: str     # nombre de la regla, ej. "es geht + Dativ"
+    rule: str      # explicación en español
+    example: str   # 1-2 ejemplos en el idioma objetivo
+
+
 class TutorResponse(BaseModel):
-    reply: str               # tu respuesta como tutor, en el idioma objetivo
-    correction: str | None   # versión corregida de lo que dijo el alumno (o null)
-    explanation_es: str      # explicación en español de la corrección / gramática
-    new_vocab: list[VocabItem]     # 3-6 palabras/frases nuevas útiles
-    pronunciation_tip: str | None  # consejo breve de pronunciación si aplica
+    reply: str                      # respuesta del tutor, en el idioma objetivo
+    reply_translation_es: str       # traducción al español de la respuesta
+    correction: str | None          # frase corregida completa (o null)
+    correction_items: list[CorrectionItem]  # pares wrong→right (vacío si no hubo)
+    explanation_es: str             # explicación breve en español
+    grammar: Grammar | None         # mini-ficha de gramática (o null)
+    new_vocab: list[VocabItem]      # 2-4 palabras/frases útiles
+    pronunciation_tip: str | None   # consejo de pronunciación (o null)
 
 
 class WordInfo(BaseModel):
     word: str                  # palabra (forma base si aplica)
+    pos: str                   # categoría gramatical (ej. "sustantivo · der")
+    ipa: str                   # transcripción IPA aproximada (o "")
     translation_es: str        # traducción al español
-    synonyms: list[str]        # 3-5 sinónimos en el idioma objetivo
+    synonyms: list[str]        # 2-5 sinónimos en el idioma objetivo
+    example_de: str            # frase de ejemplo en el idioma objetivo
+    example_es: str            # traducción al español del ejemplo
 
 
 def word_info(word: str, context: str = "", lang: str = "de") -> WordInfo:
-    """Click en una palabra → traducción al español + sinónimos, en el idioma `lang`."""
+    """Click en una palabra → ficha de diccionario (idioma `lang` → español)."""
     pack = langs.get(lang)
     msg = f"Palabra: {word}"
     if context:
         msg += f"\nContexto (frase donde aparece): {context}"
     resp = client.messages.parse(
         model=config.ANTHROPIC_MODEL,
-        max_tokens=400,
+        max_tokens=500,
         system=[{
             "type": "text",
             "text": langs.word_system_prompt(pack),
@@ -56,7 +76,7 @@ def tutor(history: list[dict], lang: str = "de") -> TutorResponse:
     pack = langs.get(lang)
     resp = client.messages.parse(
         model=config.ANTHROPIC_MODEL,
-        max_tokens=1024,
+        max_tokens=1200,
         system=[{
             "type": "text",
             "text": langs.tutor_system_prompt(pack),
