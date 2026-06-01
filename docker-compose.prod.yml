@@ -1,0 +1,23 @@
+# Producción en el VPS (EasyPanel + Traefik). Sin puertos publicados:
+# Traefik rutea por la red overlay `easypanel` (se conecta tras el `up`).
+services:
+  deutsch-api:
+    build: ./backend
+    container_name: deutsch-api
+    env_file: .env
+    restart: unless-stopped
+    networks: [easypanel]
+
+  deutsch-web:
+    build:
+      context: ./frontend
+      args:
+        NEXT_PUBLIC_API_URL: https://deutsch.aurik.cl
+    container_name: deutsch-web
+    restart: unless-stopped
+    networks: [easypanel]
+
+# Red overlay compartida (Traefik + urgencias-er) — así `up -d` mantiene la conexión.
+networks:
+  easypanel:
+    external: true

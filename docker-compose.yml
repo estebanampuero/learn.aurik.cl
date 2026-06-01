@@ -1,0 +1,29 @@
+services:
+  backend:
+    build: ./backend
+    environment:
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - DEUTSCH_TUTOR_MODEL=${DEUTSCH_TUTOR_MODEL:-claude-haiku-4-5}
+      - CORS_ORIGINS=${CORS_ORIGINS:-*}
+      # Reutilizar Whisper del VPS: OPCIÓN B (servicio HTTP) o OPCIÓN A (caché compartido)
+      - STT_SERVICE_URL=${STT_SERVICE_URL:-}
+      - WHISPER_DOWNLOAD_ROOT=${WHISPER_DOWNLOAD_ROOT:-}
+      - WHISPER_SIZE=${WHISPER_SIZE:-small}
+    ports:
+      - "8000:8000"
+    # OPCIÓN A: monta el caché de modelos ya descargado para no re-bajar los pesos.
+    # Descomenta y ajusta la ruta del host (donde urgencias-er guarda el modelo):
+    # volumes:
+    #   - /ruta/en/el/vps/.cache/huggingface:/root/.cache/huggingface
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:8000}
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
+    restart: unless-stopped

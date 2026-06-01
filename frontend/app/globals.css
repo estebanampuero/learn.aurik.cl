@@ -1,0 +1,41 @@
+* { box-sizing: border-box; }
+body {
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  margin: 0;
+  background: #0f172a;
+  color: #e2e8f0;
+}
+.wrap { max-width: 720px; margin: 0 auto; padding: 24px 16px 96px; }
+h1 { color: #38bdf8; font-size: 22px; }
+.sub { color: #94a3b8; font-size: 13px; margin-top: -8px; }
+.msg { border-radius: 12px; padding: 12px 14px; margin: 10px 0; }
+.user { background: #1e293b; }
+.tutor { background: #0b3b46; }
+.de { font-size: 17px; }
+.label { font-size: 11px; text-transform: uppercase; letter-spacing: .05em; color: #94a3b8; }
+.correction { background: #3b2f0b; border-left: 3px solid #eab308; padding: 8px 10px; border-radius: 8px; margin-top: 8px; font-size: 14px; }
+.vocab { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.chip { background: #155e75; border-radius: 999px; padding: 3px 10px; font-size: 13px; }
+.mic {
+  position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+  width: 72px; height: 72px; border-radius: 50%; border: none;
+  background: #38bdf8; color: #042f2e; font-size: 28px; cursor: pointer;
+  box-shadow: 0 6px 24px rgba(56,189,248,.4);
+}
+.mic.rec { background: #ef4444; color: #fff; animation: pulse 1s infinite; }
+@keyframes pulse { 0%,100% { opacity: 1 } 50% { opacity: .6 } }
+.hint { text-align: center; color: #64748b; font-size: 13px; margin-top: 8px; }
+
+/* palabras clickeables */
+.word { cursor: pointer; border-bottom: 1px dotted rgba(56,189,248,.5); transition: background .1s; padding: 0 1px; border-radius: 3px; }
+.word:hover { background: rgba(56,189,248,.22); }
+.chip { cursor: pointer; }
+
+/* popup de traducción + sinónimos */
+.wordpop { position: fixed; inset: 0; background: rgba(0,0,0,.55); display: flex; align-items: flex-end; justify-content: center; z-index: 50; }
+.wordpop-inner { background: #0b3b46; border: 1px solid #155e75; border-radius: 16px 16px 0 0; width: 100%; max-width: 720px; padding: 18px 18px 28px; position: relative; }
+.wordpop-x { position: absolute; top: 10px; right: 14px; background: none; border: none; color: #94a3b8; font-size: 26px; cursor: pointer; line-height: 1; }
+.wordpop-w { font-size: 22px; font-weight: 700; color: #38bdf8; }
+.wordpop-tr { font-size: 18px; margin-top: 6px; }
+.wordpop-loading { color: #94a3b8; margin-top: 8px; }
+.wordpop-syn { margin-top: 12px; }
