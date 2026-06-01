@@ -3,6 +3,7 @@ import base64
 import json
 import os
 import tempfile
+import time
 
 from fastapi import FastAPI, File, Form, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
@@ -51,10 +52,12 @@ async def chat(audio: UploadFile = File(...), history: str = Form("[]")):
     with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as f:
         f.write(data)
         audio_path = f.name
+    t0 = time.monotonic()
     try:
         user_text = stt.transcribe(audio_path)
     finally:
         os.remove(audio_path)
+    t_stt = time.monotonic()
 
     print(f"[STT] user_text={user_text!r}", flush=True)
     if not user_text:
@@ -64,12 +67,16 @@ async def chat(audio: UploadFile = File(...), history: str = Form("[]")):
     # 2) Tutor (Claude) responde + corrige
     hist.append({"role": "user", "content": user_text})
     result = tutor.tutor(hist)
+    t_claude = time.monotonic()
     print(f"[TUTOR] reply={result.reply_de!r} | corr={result.correction!r} "
           f"| vocab={[(v.de, v.es) for v in result.new_vocab]}", flush=True)
 
     # 3) TTS de la respuesta en alemán
     audio_bytes = tts.synthesize(result.reply_de)
+    t_tts = time.monotonic()
     print(f"[TTS] {len(audio_bytes)} bytes", flush=True)
+    print(f"[TIMING] stt={(t_stt-t0)*1000:.0f}ms  claude={(t_claude-t_stt)*1000:.0f}ms  "
+          f"tts={(t_tts-t_claude)*1000:.0f}ms  total={(t_tts-t0)*1000:.0f}ms", flush=True)
 
     return {
         "user_text": user_text,
