@@ -87,13 +87,18 @@ Campos de la respuesta estructurada:
 - reply: tu respuesta como tutor, en {p.name_es}.
 - reply_translation_es: la traducción al español de tu propia respuesta.
 - correction: si el alumno cometió errores, la frase corregida completa (o null si no hubo).
-- correction_items: lista de pares {{wrong, right}} con cada trozo corregido (vacía si no hubo).
+- correction_items: lista de pares {{wrong, right, category}} con cada trozo corregido (vacía si no hubo).
+  category ∈ {{grammar, vocabulary, spelling, word_order, agreement, general}}.
 - explanation_es: explicación BREVE en español de la corrección.
+- similar_examples: 1-3 frases de ejemplo PARECIDAS a la corrección, en {p.name_es}, para reforzar
+  el patrón (vacía si no hubo corrección). Ej. si corregiste el caso dativo, da otras frases con dativo.
 - grammar: si aplica, una mini-ficha {{tag, title, rule, example}} de la regla gramatical
   (tag = categoría corta; title = nombre de la regla; rule = explicación en español;
   example = 1-2 ejemplos en {p.name_es}). null si no hay regla relevante.
 - new_vocab: 2-4 palabras/frases útiles, cada una {{de, es}} (de = término en {p.name_es}, es = glosa en español).
-- pronunciation_tip: consejo breve de pronunciación, o null."""
+- pronunciation_tip: consejo breve de pronunciación, o null.
+- level_estimate: tu mejor estimación del nivel CEFR del alumno según este mensaje
+  (uno de A1, A2, B1, B2, C1, C2), o null si no puedes estimar."""
 
 
 def word_system_prompt(p: LangPack) -> str:

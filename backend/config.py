@@ -1,9 +1,22 @@
 """Configuración por variables de entorno."""
 import os
 
-# Modelo de Claude para el tutor. Por defecto Haiku 4.5 (barato para uso diario,
-# elegido por el usuario). Para mejor calidad pedagógica: claude-opus-4-8 o claude-sonnet-4-6.
+# Modelo de Claude para el chat (uso diario, alto volumen). Por defecto Haiku 4.5
+# (barato/rápido). Para mejor calidad pedagógica: claude-opus-4-8 o claude-sonnet-4-6.
 ANTHROPIC_MODEL = os.getenv("DEUTSCH_TUTOR_MODEL", "claude-haiku-4-5")
+
+# Modelo "Pro" para razonamiento pesado y de baja frecuencia: informe semanal,
+# plan de estudio, evaluación de nivel/pronunciación, generación de flashcards.
+ANTHROPIC_MODEL_PRO = os.getenv("DEUTSCH_TUTOR_MODEL_PRO", "claude-sonnet-4-6")
+
+# ─── Persistencia (SQLModel/SQLAlchemy). SQLite por defecto, en volumen /data ──
+# Swap a Postgres = cambiar DATABASE_URL (ej. postgresql+psycopg://user:pass@host/db).
+DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:////data/app.db")
+
+# ─── Auth (JWT) ───────────────────────────────────────────────────────────────
+JWT_SECRET = os.getenv("JWT_SECRET", "dev-insecure-change-me")
+JWT_ALG = "HS256"
+JWT_EXPIRE_DAYS = int(os.getenv("JWT_EXPIRE_DAYS", "30"))
 
 # ─── STT (Whisper) — reutiliza el que ya tienes en el VPS ───────────────────
 # OPCIÓN B (recomendada en VPS): si urgencias-er expone un servicio HTTP de

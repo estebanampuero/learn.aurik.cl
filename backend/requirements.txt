@@ -5,5 +5,10 @@ pydantic>=2
 python-multipart
 piper-tts
 httpx
+# Persistencia + auth
+sqlmodel
+bcrypt
+pyjwt
+email-validator
 # faster-whisper: solo si usas STT local (Opción A). En este deploy el STT se
 # delega a urgencias-er (Opción B), así que no se instala (build más liviano).
