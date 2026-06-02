@@ -22,14 +22,14 @@ class Tutor:
 
 TUTORS: list[Tutor] = [
     # ── Alemán ──
-    Tutor("lena", "Lena", "de", "/tutors/lena.png", "LE", "f", "conversation",
+    Tutor("lena", "Lena", "de", "/tutors/lena.webp", "LE", "f", "conversation",
           "Conversación", "cálida y conversacional; te hace hablar de tu día y mantiene el ritmo"),
-    Tutor("lukas", "Lukas", "de", "/tutors/lukas.png", "LU", "m", "grammar",
+    Tutor("lukas", "Lukas", "de", "/tutors/lukas.webp", "LU", "m", "grammar",
           "Gramática", "metódico y claro; explica casos, declinaciones y orden de la frase con ejemplos"),
     # ── Inglés ──
-    Tutor("emma", "Emma", "en", "/tutors/emma.png", "EM", "f", "conversation",
+    Tutor("emma", "Emma", "en", "/tutors/emma.webp", "EM", "f", "conversation",
           "Conversación", "cercana y fluida; prioriza que hables con naturalidad y confianza"),
-    Tutor("oliver", "Oliver", "en", "/tutors/oliver.png", "OL", "m", "business",
+    Tutor("oliver", "Oliver", "en", "/tutors/oliver.webp", "OL", "m", "business",
           "Negocios & entrevistas", "profesional; te prepara para reuniones, correos y entrevistas de trabajo"),
 ]
 
