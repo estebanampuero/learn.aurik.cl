@@ -154,3 +154,31 @@ class MemoryFact(SQLModel, table=True):
     kind: str = "note"             # recurring_error | topic | goal | level | note
     content: str = ""
     created_at: datetime = Field(default_factory=_now)
+
+
+class ExamSession(SQLModel, table=True):
+    id: int | None = Field(default=None, primary_key=True)
+    user_id: int = Field(index=True, foreign_key="user.id")
+    exam_id: str = ""              # ej. "goethe_b1" | "ielts_a2" | "placement_de"
+    cert: str = ""                 # goethe | ielts | placement
+    level: str = ""                # A1..C1 (objetivo) o "" para placement
+    lang: str = "de"
+    tasks_json: str = "[]"         # tareas generadas CON respuestas correctas (privado)
+    created_at: datetime = Field(default_factory=_now)
+    graded: bool = False
+
+
+class ExamResult(SQLModel, table=True):
+    id: int | None = Field(default=None, primary_key=True)
+    user_id: int = Field(index=True, foreign_key="user.id")
+    session_id: int = Field(foreign_key="examsession.id")
+    exam_id: str = ""
+    cert: str = ""
+    target_level: str = ""
+    lang: str = "de"
+    cefr_level: str = "A1"         # nivel alcanzado
+    score: int = 0                 # 0-100
+    band: str = ""                 # IELTS band o Goethe Punkte (texto)
+    passed: bool = False
+    content_json: str = "{}"       # per_skill, feedback, recommendations
+    created_at: datetime = Field(default_factory=_now)

@@ -23,6 +23,9 @@ export default function Conversar({ lang, pending, onConsumePending }: {
   const [showTrans, setShowTrans] = useState<Record<number, boolean>>({});
   const [openCorr, setOpenCorr] = useState<Record<number, boolean>>({});
   const [toast, setToast] = useState<string>("");
+  const [objectives, setObjectives] = useState<string[]>([]);
+  const [objDone, setObjDone] = useState<string[]>([]);
+  const [celebrate, setCelebrate] = useState<{ stars: number; xp: number } | null>(null);
 
   const recRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
@@ -58,6 +61,11 @@ export default function Conversar({ lang, pending, onConsumePending }: {
     setConv(full);
     setTutor(full.tutor || null);
     setMessages(full.messages || []);
+    setObjectives(full.objectives || []);
+    // reconstruye objetivos cumplidos desde el último payload del tutor
+    const last = [...(full.messages || [])].reverse().find((m) => m.role === "assistant" && m.payload?.objectives_done);
+    setObjDone(last?.payload?.objectives_done || []);
+    setCelebrate(null);
     setState("idle");
   }
 
@@ -65,6 +73,8 @@ export default function Conversar({ lang, pending, onConsumePending }: {
     const c = await api.startConversation({ lang, tutor_id: t.id, mode: "chat" });
     setConv(c);
     setTutor(t);
+    setObjectives([]);
+    setObjDone([]);
     setMessages([{ role: "assistant", content: c.greeting || "", payload: { reply: c.greeting } }]);
     setState("idle");
   }
@@ -119,10 +129,17 @@ export default function Conversar({ lang, pending, onConsumePending }: {
         { role: "user", content: turn.user_text || text || "", payload: turn },
         { role: "assistant", content: turn.reply, payload: turn },
       ]);
+      if (turn.objectives?.length) setObjectives(turn.objectives);
+      if (turn.objectives_done) setObjDone(turn.objectives_done);
       const bits: string[] = [`+${turn.xp ?? 0} XP`];
       if (turn.level) bits.push(`Nivel ${turn.level}`);
       if (turn.new_achievements?.length) bits.push("🏆 " + turn.new_achievements.map((a) => a.title).join(", "));
       flash(bits.join(" · "));
+      if (turn.mission_complete) {
+        const corr = (turn.correction_items?.length || 0);
+        const stars = corr === 0 ? 3 : corr <= 2 ? 2 : 1;
+        setCelebrate({ stars, xp: turn.xp ?? 0 });
+      }
       playReply(turn);
     } catch (e: any) {
       flash(e.message || "Error de conexión."); setState("idle");
@@ -222,9 +239,27 @@ export default function Conversar({ lang, pending, onConsumePending }: {
         </>}
         <div className="head-controls">
           {conv.scenario_id && <span className="scenario-chip">{conv.title}</span>}
-          <button className="btn-ghost" onClick={() => { setConv(null); setMessages([]); }}>Nueva</button>
+          <button className="btn-ghost" onClick={() => { setConv(null); setMessages([]); setObjectives([]); setObjDone([]); }}>Nueva</button>
         </div>
       </div>
+
+      {/* Panel de misión (lecciones / roleplay con objetivos) */}
+      {objectives.length > 0 && (
+        <div className="mission glass">
+          <div className="mission-top">
+            <span className="mission-title">🎯 Objetivos</span>
+            <span className="mission-count">{objDone.length}/{objectives.length}</span>
+          </div>
+          <div className="bar"><div className="bar-fill" style={{ width: `${(objDone.length / objectives.length) * 100}%` }} /></div>
+          <ul className="mission-list">
+            {objectives.map((o, i) => (
+              <li key={i} className={objDone.includes(o) ? "done" : ""}>
+                <span className="mk">{objDone.includes(o) ? "✓" : "○"}</span>{o}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       {/* Hilo */}
       <div className="thread">
@@ -354,6 +389,19 @@ export default function Conversar({ lang, pending, onConsumePending }: {
             )}
           </div>
         </>
+      )}
+
+      {/* Celebración: misión completada */}
+      {celebrate && (
+        <div className="celebrate-overlay" onClick={() => setCelebrate(null)}>
+          <div className="celebrate glass" onClick={(e) => e.stopPropagation()}>
+            <div className="celebrate-emoji">🎉</div>
+            <div className="celebrate-title">¡Misión completada!</div>
+            <div className="celebrate-stars">{[1, 2, 3].map((s) => <span key={s} className={s <= celebrate.stars ? "star on" : "star"}>★</span>)}</div>
+            <div className="celebrate-xp">+{celebrate.xp} XP</div>
+            <button className="btn-primary" onClick={() => setCelebrate(null)}>Seguir</button>
+          </div>
+        </div>
       )}
     </div>
   );

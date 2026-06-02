@@ -2,23 +2,25 @@
 
 import { useEffect, useRef, useState } from "react";
 import { api } from "@/lib/api";
-import type { Achievement, Dashboard, LangCode, Stats } from "@/lib/types";
+import type { Achievement, Dashboard, LangCode, Quest, Stats } from "@/lib/types";
 
 export default function Progreso({ lang }: { lang: LangCode }) {
   const [dash, setDash] = useState<Dashboard | null>(null);
   const [stats, setStats] = useState<Stats | null>(null);
   const [achs, setAchs] = useState<Achievement[]>([]);
+  const [quests, setQuests] = useState<Quest[]>([]);
   const [plan, setPlan] = useState<any>(null);
   const [report, setReport] = useState<any>(null);
   const [busy, setBusy] = useState("");
 
   async function loadAll() {
-    const [d, s, a, p, r] = await Promise.allSettled([
-      api.dashboard(), api.stats(lang), api.achievements(), api.studyPlan(), api.reports(),
+    const [d, s, a, q, p, r] = await Promise.allSettled([
+      api.dashboard(), api.stats(lang), api.achievements(), api.quests(), api.studyPlan(), api.reports(),
     ]);
     if (d.status === "fulfilled") setDash(d.value);
     if (s.status === "fulfilled") setStats(s.value);
     if (a.status === "fulfilled") setAchs(a.value.achievements);
+    if (q.status === "fulfilled") setQuests(q.value.quests);
     if (p.status === "fulfilled") setPlan(p.value.plan);
     if (r.status === "fulfilled") setReport(r.value.reports?.[0]?.content || null);
   }
@@ -30,6 +32,31 @@ export default function Progreso({ lang }: { lang: LangCode }) {
   return (
     <div className="prog-view">
       <h2 className="view-title">Tu progreso</h2>
+
+      {/* Nivel / rango + misiones diarias */}
+      {dash?.level_info && (
+        <div className="level-row">
+          <div className="level-card glass">
+            <div className="level-ring" style={{ ["--p" as any]: `${Math.round((dash.level_info.xp_in_level / Math.max(1, dash.level_info.xp_to_next)) * 100)}%` }}>
+              <div className="level-num">{dash.level_info.level}</div>
+            </div>
+            <div className="level-meta">
+              <div className="level-rank">{dash.level_info.rank}</div>
+              <div className="level-xp">{dash.level_info.xp_in_level} / {dash.level_info.xp_to_next} XP al nivel {dash.level_info.level + 1}</div>
+            </div>
+          </div>
+          <div className="quests-card glass">
+            <div className="quests-title">🎯 Misiones de hoy</div>
+            {quests.map((q) => (
+              <div className={"quest" + (q.done ? " done" : "")} key={q.id}>
+                <span className="q-ic">{q.done ? "✅" : q.icon}</span>
+                <span className="q-title">{q.title}</span>
+                <span className="q-prog">{q.progress}/{q.goal}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Dashboard */}
       {dash && (

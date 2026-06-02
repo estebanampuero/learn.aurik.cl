@@ -5,21 +5,22 @@ import { useAuth } from "@/lib/auth";
 import type { Conversation, LangCode } from "@/lib/types";
 import Conversar from "@/components/views/Conversar";
 import Vocabulario from "@/components/views/Vocabulario";
-import Flashcards from "@/components/views/Flashcards";
 import Escenarios from "@/components/views/Escenarios";
+import Juegos from "@/components/views/Juegos";
+import Examen from "@/components/views/Examen";
 import Progreso from "@/components/views/Progreso";
 import Perfil from "@/components/views/Perfil";
 
-type View = "conversar" | "vocabulario" | "flashcards" | "lecciones" | "roleplay" | "examen" | "progreso" | "perfil";
+type View = "conversar" | "vocabulario" | "juegos" | "lecciones" | "roleplay" | "examen" | "progreso" | "perfil";
 
 const NAV: { id: View; label: string; icon: string }[] = [
   { id: "conversar", label: "Conversar", icon: "💬" },
-  { id: "lecciones", label: "Lecciones", icon: "📚" },
+  { id: "lecciones", label: "Aprender", icon: "📚" },
   { id: "roleplay", label: "Roleplay", icon: "🎭" },
-  { id: "examen", label: "Examen", icon: "📝" },
-  { id: "vocabulario", label: "Vocabulario", icon: "⭐" },
-  { id: "flashcards", label: "Flashcards", icon: "🃏" },
+  { id: "juegos", label: "Juegos", icon: "🎮" },
+  { id: "examen", label: "Examen", icon: "📜" },
   { id: "progreso", label: "Progreso", icon: "📊" },
+  { id: "vocabulario", label: "Vocabulario", icon: "⭐" },
   { id: "perfil", label: "Perfil", icon: "👤" },
 ];
 
@@ -73,10 +74,10 @@ export default function AppShell() {
             <Conversar lang={lang} pending={pending} onConsumePending={() => setPending(null)} />
           )}
           {view === "vocabulario" && <Vocabulario lang={lang} />}
-          {view === "flashcards" && <Flashcards lang={lang} />}
+          {view === "juegos" && <Juegos lang={lang} />}
           {view === "lecciones" && <Escenarios kind="lesson" lang={lang} onOpen={openConversation} />}
           {view === "roleplay" && <Escenarios kind="roleplay" lang={lang} onOpen={openConversation} />}
-          {view === "examen" && <Escenarios kind="exam" lang={lang} onOpen={openConversation} />}
+          {view === "examen" && <Examen lang={lang} />}
           {view === "progreso" && <Progreso lang={lang} />}
           {view === "perfil" && <Perfil />}
         </main>
@@ -89,7 +90,7 @@ export default function AppShell() {
             <span className="bn-ic">{n.icon}</span><span className="bn-lb">{n.label}</span>
           </button>
         ))}
-        <button className={"bn-item" + (["progreso", "perfil", "flashcards"].includes(view) ? " on" : "")}
+        <button className={"bn-item" + (["progreso", "perfil", "vocabulario"].includes(view) ? " on" : "")}
                 onClick={() => setView("progreso")}>
           <span className="bn-ic">📊</span><span className="bn-lb">Más</span>
         </button>

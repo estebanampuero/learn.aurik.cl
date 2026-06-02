@@ -1,7 +1,8 @@
 // Cliente tipado del backend. Maneja el token JWT (localStorage) y FormData/JSON.
 import type {
   Lang, Tutor, Scenario, Conversation, TutorTurn, SavedWord, Flashcard,
-  Achievement, WordInfo, Dashboard, Stats, User,
+  Achievement, WordInfo, Dashboard, Stats, User, Quest, LevelInfo,
+  ExamMeta, ExamTask, ExamGrade, ListeningRound, SentenceRound, MatchPair,
 } from "./types";
 
 const BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
@@ -44,7 +45,7 @@ export const api = {
   tutors: (lang: string) => req<{ tutors: Tutor[] }>(`/api/tutors?lang=${lang}`),
   lessons: () => req<{ lessons: Scenario[] }>("/api/lessons"),
   roleplays: () => req<{ roleplays: Scenario[] }>("/api/roleplays"),
-  exams: () => req<{ exams: Scenario[] }>("/api/exams"),
+  exams: (lang: string) => req<{ exams: ExamMeta[] }>(`/api/exams?lang=${lang}`),
 
   // conversaciones
   startConversation: (b: { lang: string; tutor_id?: string; mode?: string; scenario_id?: string }) =>
@@ -85,6 +86,25 @@ export const api = {
   studyPlan: () => req<{ plan: any }>("/api/study-plan"),
   makeWeeklyReport: (lang: string) => req<{ report: any }>(`/api/report/weekly?lang=${lang}`, { method: "POST" }),
   reports: () => req<{ reports: any[] }>("/api/reports"),
+
+  // gamificación
+  quests: () => req<{ quests: Quest[]; level_info: LevelInfo }>("/api/quests"),
+  premium: () => req<{ is_premium: boolean; features: { key: string; title: string }[] }>("/api/premium"),
+
+  // juegos
+  gameVoice: (lang: string) => req<{ phrases: string[] }>(`/api/games/voice?lang=${lang}`),
+  gameListening: (lang: string) => req<{ rounds: ListeningRound[] }>(`/api/games/listening?lang=${lang}`),
+  gameSentence: (lang: string) => req<{ rounds: SentenceRound[] }>(`/api/games/sentence?lang=${lang}`),
+  gameMatch: (lang: string) => req<{ pairs: MatchPair[] }>(`/api/games/match?lang=${lang}`),
+  gameScore: (b: { game: string; correct: number; total: number }) =>
+    jsonReq<{ xp: number; new_achievements: Achievement[] }>("/api/games/score", "POST", b),
+
+  // examen CEFR
+  startExam: (b: { exam_id: string; lang: string }) =>
+    jsonReq<{ session_id: number; exam: ExamMeta; tasks: ExamTask[] }>("/api/exams/start", "POST", b),
+  gradeExam: (sessionId: number, answers: string[]) =>
+    jsonReq<{ result: ExamGrade; xp: number; new_achievements: Achievement[]; level: string }>(`/api/exams/${sessionId}/grade`, "POST", { answers }),
+  transcribe: (fd: FormData) => req<{ text: string }>("/api/transcribe", { method: "POST", body: fd }),
 };
 
 export { BASE };

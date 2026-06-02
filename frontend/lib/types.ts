@@ -11,7 +11,21 @@ export type Tutor = {
   lang_label: string; greeting: string;
 };
 
-export type Scenario = { id: string; kind: string; title: string; emoji: string; desc: string };
+export type Scenario = { id: string; kind: string; title: string; emoji: string; desc: string; objectives?: string[]; premium?: boolean };
+
+export type LevelInfo = { level: number; rank: string; xp: number; xp_in_level: number; xp_to_next: number; next_at: number };
+export type Quest = { id: string; title: string; icon: string; goal: number; metric: string; progress: number; done: boolean };
+
+export type ExamMeta = { id: string; cert: string; level: string; lang: string; title: string; subtitle: string; emoji: string; premium: boolean };
+export type ExamTask = { id: number; type: string; skill: string; prompt: string; passage?: string; options?: string[]; audio_b64?: string };
+export type ExamGrade = {
+  cefr_level: string; score: number; band: string; passed: boolean;
+  per_skill: { skill: string; score: number }[]; feedback: string; recommendations: string[];
+};
+
+export type ListeningRound = { sentence: string; audio_b64: string; options: string[]; correct: string };
+export type SentenceRound = { answer: string; tokens: string[]; translation_es: string };
+export type MatchPair = { word: string; es: string };
 
 export type Vocab = { de: string; es: string };
 export type CorrectionItem = { wrong: string; right: string; category?: string };
@@ -34,6 +48,9 @@ export type TutorTurn = {
   streak?: number;
   level?: string;
   new_achievements?: Achievement[];
+  objectives?: string[];
+  objectives_done?: string[];
+  mission_complete?: boolean;
 };
 
 export type Message = { role: "user" | "assistant"; content: string; payload?: any };
@@ -41,7 +58,7 @@ export type Message = { role: "user" | "assistant"; content: string; payload?: a
 export type Conversation = {
   id: number; lang: LangCode; tutor_id?: string; tutor?: Tutor; mode: string;
   scenario_id: string; title: string; updated_at?: string;
-  greeting?: string; messages?: Message[];
+  greeting?: string; messages?: Message[]; objectives?: string[];
 };
 
 export type SavedWord = {
@@ -68,7 +85,7 @@ export type WordInfo = {
 export type Dashboard = {
   hours_studied: number; conversations: number; words_learned: number;
   avg_pronunciation: number; level_de: string; level_en: string;
-  streak: number; longest_streak: number; xp: number;
+  streak: number; longest_streak: number; xp: number; level_info: LevelInfo;
 };
 
 export type Stats = {

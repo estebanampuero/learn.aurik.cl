@@ -98,7 +98,10 @@ Campos de la respuesta estructurada:
 - new_vocab: 2-4 palabras/frases útiles, cada una {{de, es}} (de = término en {p.name_es}, es = glosa en español).
 - pronunciation_tip: consejo breve de pronunciación, o null.
 - level_estimate: tu mejor estimación del nivel CEFR del alumno según este mensaje
-  (uno de A1, A2, B1, B2, C1, C2), o null si no puedes estimar."""
+  (uno de A1, A2, B1, B2, C1, C2), o null si no puedes estimar.
+- objectives_done: si el CONTEXTO trae una lista de OBJETIVOS de la sesión, devuelve aquí
+  (en español, EXACTAMENTE como aparecen) los objetivos que el alumno YA cumplió hasta ahora
+  (cumulativo: incluye los de turnos previos). Si no hay objetivos en el contexto, lista vacía."""
 
 
 def word_system_prompt(p: LangPack) -> str:

@@ -5,13 +5,12 @@ import { api } from "@/lib/api";
 import type { Conversation, LangCode, Scenario, Tutor } from "@/lib/types";
 
 const META: Record<string, { title: string; sub: string; mode: string }> = {
-  lesson: { title: "Lecciones temáticas", sub: "Conversaciones guiadas sobre un tema. Tu tutor lleva el hilo.", mode: "lesson" },
-  roleplay: { title: "Simulaciones (roleplay)", sub: "Situaciones reales: el tutor interpreta un papel y tú respondes.", mode: "roleplay" },
-  exam: { title: "Modo examen", sub: "Práctica con criterios de examen oficial y feedback de nivel.", mode: "exam" },
+  lesson: { title: "Aprender — lecciones guiadas", sub: "Cada lección tiene objetivos que vas cumpliendo al conversar. Completa todos para ganar estrellas y XP.", mode: "lesson" },
+  roleplay: { title: "Simulaciones (roleplay)", sub: "Situaciones reales con una misión: el tutor interpreta un papel y tú cumples objetivos.", mode: "roleplay" },
 };
 
 export default function Escenarios({ kind, lang, onOpen }: {
-  kind: "lesson" | "roleplay" | "exam"; lang: LangCode; onOpen: (c: Conversation) => void;
+  kind: "lesson" | "roleplay"; lang: LangCode; onOpen: (c: Conversation) => void;
 }) {
   const [items, setItems] = useState<Scenario[]>([]);
   const [tutors, setTutors] = useState<Tutor[]>([]);
@@ -19,8 +18,8 @@ export default function Escenarios({ kind, lang, onOpen }: {
   const [busy, setBusy] = useState<string>("");
 
   useEffect(() => {
-    const fetcher = kind === "lesson" ? api.lessons : kind === "roleplay" ? api.roleplays : api.exams;
-    fetcher().then((d: any) => setItems(d.lessons || d.roleplays || d.exams)).catch(() => {});
+    const fetcher = kind === "lesson" ? api.lessons : api.roleplays;
+    fetcher().then((d: any) => setItems(d.lessons || d.roleplays)).catch(() => {});
     api.tutors(lang).then((d) => { setTutors(d.tutors); setTutorId(d.tutors[0]?.id || ""); }).catch(() => {});
   }, [kind, lang]);
 
@@ -53,6 +52,9 @@ export default function Escenarios({ kind, lang, onOpen }: {
             <span className="scn-emoji">{s.emoji}</span>
             <span className="scn-title">{s.title}</span>
             <span className="scn-desc">{s.desc}</span>
+            {!!s.objectives?.length && (
+              <span className="scn-objs">🎯 {s.objectives.length} objetivos</span>
+            )}
             <span className="scn-go">{busy === s.id ? "Iniciando…" : "Empezar →"}</span>
           </button>
         ))}

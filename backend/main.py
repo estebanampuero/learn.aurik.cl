@@ -20,13 +20,16 @@ import memory
 import gamification as gam
 import pronunciation as pron
 import reports
+import games
+import exams
 import stt
 import tts
 import tutor as tutor_mod
 from db import get_session, init_db
 from auth import router as auth_router, current_user
 from models import (User, Conversation, Message, SavedWord, Flashcard, ErrorLog,
-                    PronunciationAttempt, Achievement, Streak, WeeklyReport, StudyPlan)
+                    PronunciationAttempt, Achievement, Streak, WeeklyReport, StudyPlan,
+                    ProgressEvent, ExamSession, ExamResult)
 
 app = FastAPI(title="Sona — Language Tutor")
 
@@ -80,8 +83,8 @@ def list_roleplays():
 
 
 @app.get("/api/exams")
-def list_exams():
-    return {"exams": [scenarios.public(s) for s in scenarios.EXAMS]}
+def list_exams(lang: str = "de"):
+    return {"exams": exams.catalog(lang)}
 
 
 # ════════════════════════ Diccionario / traducción ════════════════════════════
@@ -143,7 +146,7 @@ def start_conversation(req: StartConvReq, user: User = Depends(current_user),
     session.commit()
     return {"id": conv.id, "lang": conv.lang, "tutor": tutors.public(t),
             "mode": conv.mode, "scenario_id": conv.scenario_id, "title": conv.title,
-            "greeting": greeting}
+            "greeting": greeting, "objectives": sc.objectives if sc else []}
 
 
 @app.get("/api/conversations")
@@ -163,9 +166,11 @@ def get_conversation(conv_id: int, user: User = Depends(current_user),
     msgs = session.exec(select(Message).where(Message.conversation_id == conv_id)
                         .order_by(Message.created_at)).all()
     t = tutors.get(conv.tutor_id, conv.lang)
+    sc = scenarios.get(conv.scenario_id)
     return {
         "id": conv.id, "lang": conv.lang, "tutor": tutors.public(t), "mode": conv.mode,
         "scenario_id": conv.scenario_id, "title": conv.title,
+        "objectives": sc.objectives if sc else [],
         "messages": [{"role": m.role, "content": m.content,
                       "payload": json.loads(m.payload_json) if m.payload_json else None}
                      for m in msgs],
@@ -190,6 +195,10 @@ def _build_extra_system(session: Session, user: User, conv: Conversation) -> str
     sc = scenarios.get(conv.scenario_id)
     if sc:
         blocks.append("CONTEXTO DE LA SESIÓN: " + sc.prompt)
+        if sc.objectives:
+            lst = "\n".join(f"  - {o}" for o in sc.objectives)
+            blocks.append("OBJETIVOS de esta sesión (guía al alumno a cumplirlos uno a uno y reporta "
+                          "su avance en objectives_done):\n" + lst)
     mem = memory.build_block(session, user, conv.lang)
     if mem:
         blocks.append(mem)
@@ -257,8 +266,20 @@ async def chat(
             user.level_en = result.level_estimate
         session.add(user)
 
-    # 5) Gamificación.
+    # 5) Gamificación (mensaje + cierre de objetivos de la sesión).
     xp = gam.award(session, user.id, "message")
+    sc = scenarios.get(conv.scenario_id)
+    mission_complete = False
+    if sc and sc.objectives:
+        done = set(result.objectives_done or [])
+        if all(o in done for o in sc.objectives):
+            # ¿ya se premió esta conversación? (idempotente)
+            already = session.exec(select(ProgressEvent).where(
+                ProgressEvent.user_id == user.id, ProgressEvent.type == "lesson_complete",
+                ProgressEvent.meta_json.contains(f'"conversation_id": {conv.id}'))).first()
+            if not already:
+                xp += gam.award(session, user.id, "lesson_complete", {"conversation_id": conv.id})
+                mission_complete = True
     streak = gam.touch_streak(session, user.id)
     new_ach = gam.check_achievements(session, user.id, user.level_de, user.level_en)
     session.commit()
@@ -273,6 +294,8 @@ async def chat(
         "audio_b64": base64.b64encode(audio_bytes).decode(),
         "xp": xp, "streak": streak.current, "new_achievements": new_ach,
         "level": user.level_de if conv.lang == "de" else user.level_en,
+        "objectives": sc.objectives if sc else [],
+        "mission_complete": mission_complete,
     }
 
 
@@ -450,6 +473,7 @@ def dashboard(user: User = Depends(current_user), session: Session = Depends(get
         "streak": streak.current if streak else 0,
         "longest_streak": streak.longest if streak else 0,
         "xp": int(xp),
+        "level_info": gam.level_info(int(xp)),
     }
 
 
@@ -541,3 +565,144 @@ def list_reports(user: User = Depends(current_user), session: Session = Depends(
         {"id": r.id, "week_start": r.week_start.isoformat(),
          "content": json.loads(r.content_json), "created_at": r.created_at.isoformat()}
         for r in rows]}
+
+
+# ════════════════════════ Misiones diarias · nivel · premium ══════════════════
+@app.get("/api/quests")
+def get_quests(user: User = Depends(current_user), session: Session = Depends(get_session)):
+    quests = gam.daily_quests(session, user.id)
+    session.commit()
+    xp = gam.total_xp(session, user.id)
+    return {"quests": quests, "level_info": gam.level_info(int(xp))}
+
+
+@app.get("/api/premium")
+def premium(user: User = Depends(current_user)):
+    # Solo preparación: marca features premium para badges. NO bloquea nada todavía.
+    return {
+        "is_premium": False,
+        "features": [
+            {"key": "exams", "title": "Exámenes CEFR (Goethe/IELTS)"},
+            {"key": "tutors_pro", "title": "Todos los tutores"},
+            {"key": "reports", "title": "Informe semanal + plan de estudio"},
+            {"key": "games_pro", "title": "Juegos avanzados"},
+            {"key": "no_limits", "title": "Sin límites de energía"},
+        ],
+    }
+
+
+# ════════════════════════ Juegos ══════════════════════════════════════════════
+def _user_level(user: User, lang: str) -> str:
+    return user.level_de if lang == "de" else user.level_en
+
+
+@app.get("/api/games/voice")
+def game_voice(lang: str = "de", user: User = Depends(current_user)):
+    return {"phrases": games.voice_rounds(lang, _user_level(user, lang))}
+
+
+@app.get("/api/games/listening")
+def game_listening(lang: str = "de", user: User = Depends(current_user)):
+    return {"rounds": games.listening_rounds(lang, _user_level(user, lang))}
+
+
+@app.get("/api/games/sentence")
+def game_sentence(lang: str = "de", user: User = Depends(current_user)):
+    return {"rounds": games.sentence_rounds(lang, _user_level(user, lang))}
+
+
+@app.get("/api/games/match")
+def game_match(lang: str = "de", user: User = Depends(current_user), session: Session = Depends(get_session)):
+    saved = session.exec(select(SavedWord).where(
+        SavedWord.user_id == user.id, SavedWord.lang == lang)
+        .order_by(SavedWord.learned_at.desc()).limit(8)).all()
+    pairs = games.match_pairs(lang, _user_level(user, lang),
+                              [{"word": w.word, "translation_es": w.translation_es} for w in saved])
+    return {"pairs": pairs}
+
+
+class GameScoreReq(BaseModel):
+    game: str
+    correct: int = 0
+    total: int = 0
+
+
+@app.post("/api/games/score")
+def game_score(req: GameScoreReq, user: User = Depends(current_user), session: Session = Depends(get_session)):
+    xp = gam.award(session, user.id, "game", {"game": req.game, "correct": req.correct, "total": req.total})
+    new_ach = gam.check_achievements(session, user.id, user.level_de, user.level_en)
+    session.commit()
+    return {"xp": xp, "new_achievements": new_ach}
+
+
+# ════════════════════════ STT genérico (para examen speaking) ═════════════════
+@app.post("/api/transcribe")
+async def transcribe(audio: UploadFile = File(...), lang: str = Form("de"),
+                     user: User = Depends(current_user)):
+    pack = langs.get(lang)
+    data = await audio.read()
+    suffix = os.path.splitext(audio.filename or "")[1] or ".webm"
+    with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as f:
+        f.write(data)
+        path = f.name
+    try:
+        text = stt.transcribe(path, pack.stt)
+    finally:
+        os.remove(path)
+    return {"text": text}
+
+
+# ════════════════════════ Examen CEFR (Goethe / IELTS) ════════════════════════
+class StartExamReq(BaseModel):
+    exam_id: str
+    lang: str = "de"
+
+
+@app.post("/api/exams/start")
+def start_exam(req: StartExamReq, user: User = Depends(current_user), session: Session = Depends(get_session)):
+    meta, tasks = exams.generate(req.exam_id, req.lang)
+    es = ExamSession(user_id=user.id, exam_id=req.exam_id, cert=meta.get("cert", ""),
+                     level=meta.get("level", ""), lang=req.lang,
+                     tasks_json=json.dumps(tasks, ensure_ascii=False))
+    session.add(es)
+    session.commit()
+    session.refresh(es)
+    return {"session_id": es.id, "exam": meta, "tasks": exams.public_tasks(tasks)}
+
+
+class GradeExamReq(BaseModel):
+    answers: list[str]
+
+
+@app.post("/api/exams/{session_id}/grade")
+def grade_exam(session_id: int, req: GradeExamReq, user: User = Depends(current_user),
+               session: Session = Depends(get_session)):
+    es = session.get(ExamSession, session_id)
+    if not es or es.user_id != user.id:
+        raise HTTPException(404, "Sesión de examen no encontrada.")
+    tasks = json.loads(es.tasks_json)
+    meta = exams._meta(es.exam_id, es.lang) or {"cert": es.cert, "level": es.level}
+    g = exams.grade(meta, tasks, req.answers, es.lang)
+    es.graded = True
+    session.add(es)
+    # Resultado.
+    res = ExamResult(user_id=user.id, session_id=es.id, exam_id=es.exam_id, cert=es.cert,
+                     target_level=es.level, lang=es.lang, cefr_level=g["cefr_level"],
+                     score=g["score"], band=g["band"], passed=g["passed"],
+                     content_json=json.dumps(g, ensure_ascii=False))
+    session.add(res)
+    # Actualiza nivel del usuario si el alcanzado es mayor (o si es placement).
+    order = {"A1": 1, "A2": 2, "B1": 3, "B2": 4, "C1": 5, "C2": 6}
+    reached = g["cefr_level"]
+    cur = user.level_de if es.lang == "de" else user.level_en
+    if es.cert == "placement" or order.get(reached, 0) > order.get(cur, 0):
+        if es.lang == "de":
+            user.level_de = reached
+        else:
+            user.level_en = reached
+        session.add(user)
+    xp = gam.award(session, user.id, "exam", {"exam_id": es.exam_id, "level": reached})
+    new_ach = gam.check_achievements(session, user.id, user.level_de, user.level_en)
+    session.commit()
+    return {"result": g, "xp": xp, "new_achievements": new_ach,
+            "level": user.level_de if es.lang == "de" else user.level_en}

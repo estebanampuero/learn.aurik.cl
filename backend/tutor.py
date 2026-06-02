@@ -42,6 +42,7 @@ class TutorResponse(BaseModel):
     new_vocab: list[VocabItem]      # 2-4 palabras/frases útiles
     pronunciation_tip: str | None   # consejo de pronunciación (o null)
     level_estimate: str | None      # nivel CEFR estimado del alumno: A1..C2 (o null)
+    objectives_done: list[str]      # objetivos del escenario YA cumplidos (cumulativo; [] si no hay)
 
 
 class WordInfo(BaseModel):
