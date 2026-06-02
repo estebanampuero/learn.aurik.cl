@@ -12,7 +12,7 @@ services:
     build:
       context: ./frontend
       args:
-        NEXT_PUBLIC_API_URL: https://deutsch.aurik.cl
+        NEXT_PUBLIC_API_URL: https://learn.aurik.cl
     container_name: deutsch-web
     restart: unless-stopped
     networks: [easypanel]
